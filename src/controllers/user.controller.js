@@ -40,12 +40,16 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   const existedUser = await User.findOne({
-    $or: [{ username }, { email }],
+    $or: [
+      { username: username },
+      { email: email },
+    ]
   });
 
   if (existedUser) {
     throw new ApiError(409, "User with email or username already exists");
   }
+  
 
   const avatarLocalPath = req.files?.avatar[0]?.path;
 
@@ -74,7 +78,7 @@ const registerUser = asyncHandler(async (req, res) => {
     username,
     avatar_public_id: avatar.public_id,
     coverImage_public_id: coverImage.public_id,
-  });
+  });  
 
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken"

@@ -1,20 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-
-const app = express();
-
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN,
-    credentials: true,
-  })
-);
-
-app.use(express.json({ limit: "16kb" })); //accepts json data from api of limit 16kb
-app.use(express.urlencoded({ extended: true, limit: "16kb" })); //extended helps in object inside object
-app.use(express.static("public")); // can keep images favicons there
-app.use(cookieParser());
+import dotenv from "dotenv";
 
 //routes import
 import userRouter from "./routes/user.routes.js";
@@ -27,9 +14,29 @@ import likeRouter from "./routes/like.routes.js";
 import playlistRouter from "./routes/playlist.routes.js";
 import dashboardRouter from "./routes/dashboard.routes.js";
 
+
+const app = express();
+
+dotenv.config({
+    path: './.env'
+})
+
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN,
+    credentials: true,
+  })
+);
+
+app.use(express.static("public")); // can keep images favicons there
+app.use(cookieParser());
+app.use(express.json({ limit: "16kb" }));
+app.use(express.urlencoded({ extended: true, limit: "16kb" }));
+
+
 //routes declaration
-app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/users", userRouter);
+app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/tweets", tweetRouter);
 app.use("/api/v1/subscriptions", subscriptionRouter);
 app.use("/api/v1/videos", videoRouter);
