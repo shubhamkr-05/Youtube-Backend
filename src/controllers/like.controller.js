@@ -109,25 +109,28 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 )
 
 const getLikedVideos = asyncHandler(async (req, res) => {
-    const userId = req.user?._id
-    
+    const userId = req.user?._id;
+
     const likedVideos = await Like.find({ likedBy: userId, video: { $exists: true } })
-            .populate({
-                path: 'video',
-                model: Video, // Reference the Video model
-                select: 'title thumbnail views owner', // Select only the fields you want to return
-                populate: {
-                    path: 'owner',
-                    select: 'username fullName avatar', // Populate owner details
-                }
-            })
-            .exec();
+        .populate({
+            path: 'video',
+            model: Video,
+            select: 'title thumbnail views owner createdAt',
+            populate: {
+                path: 'owner',
+                select: 'username fullName avatar',
+            }
+        })
+        .exec();
 
-    if ( !likedVideos.length ) { throw new Apierror( 500, "Liked Videos Not Found!" ) }
+    return res.status(200).json(
+        new ApiResponse(200, {
+            totalVideos: likedVideos.length,
+            Videos: likedVideos
+        }, likedVideos.length ? "Videos found!" : "No liked videos.")
+    );
+});
 
-    return res.status( 200 )
-        .json( new ApiResponse( 200, { "totalVideos": likedVideos.length, "Videos": likedVideos }, "Videos found!" ) )
-})
 
 const getUsersWhoLikedVideos = asyncHandler(async (req, res) => {
     

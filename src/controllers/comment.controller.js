@@ -15,78 +15,57 @@ const getVideoComments = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid video Id");
     }
 
-    const getComments = await Comment.aggregate([
+    // Fetch comments with populated owner info
+    const comments = await Comment.find({ video: videoId })
+        .populate({
+            path: "owner",
+            select: "username fullName avatar",
+        })
+        .sort({ createdAt: -1 }) // Optional: sort newest first
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit))
+        .lean(); // Convert to plain JS objects
+
+    if (!comments || comments.length === 0) {
+        throw new ApiError(404, "No comments found");
+    }
+
+    // Extract all comment IDs
+    const commentIds = comments.map((c) => c._id);
+
+    // Count likes for each comment
+    const likeCounts = await mongoose.model("Like").aggregate([
         {
-            $match: {
-                video: new mongoose.Types.ObjectId(videoId)
+            $match: { comment: { $in: commentIds } }
+        },
+        {
+            $group: {
+                _id: "$comment",
+                count: { $sum: 1 }
             }
-        },
-        {
-            $lookup: {
-                from: "users",
-                foreignField: "_id",
-                localField: "owner",
-                as: "owner",
-                pipeline: [
-                    {
-                        $project: {
-                            username: 1,
-                            fullName: 1,
-                            avatar: 1,
-                            _id: 1
-                        }
-                    }
-                ]
-            }
-        },
-        {
-            $lookup: {
-                from: "likes",
-                localField: "_id",
-                foreignField: "comment",
-                as: "likes"
-            }
-        },
-        {
-            $addFields: {
-                likesCount: { $size: "$likes" }
-            }
-        },
-        {
-            $project: {
-                _id: 1,
-                username: 1,
-                fullName: 1,
-                avatar: 1,
-                content: 1,
-                owner: 1,
-                likesCount: 1,
-                createdAt: 1 // Include the createdAt field
-            }
-        },
-        {
-            $skip: (page - 1) * limit
-        },
-        {
-            $limit: parseInt(limit)
         }
     ]);
 
-    if (!getComments || getComments.length === 0) {
-        throw new ApiError(501, "No comments found");
-    }
+    // Map of commentId => likeCount
+    const likeMap = {};
+    likeCounts.forEach((like) => {
+        likeMap[like._id.toString()] = like.count;
+    });
 
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                getComments,
-                "Comments fetched successfully"
-            )
-        );
+    // Add likesCount to each comment
+    const commentsWithLikes = comments.map((c) => ({
+        ...c,
+        likesCount: likeMap[c._id.toString()] || 0
+    }));
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            commentsWithLikes,
+            "Comments fetched successfully"
+        )
+    );
 });
-
 
 const addComment = asyncHandler(async (req, res) => {
     const {videoId} = req.params;
